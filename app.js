@@ -748,31 +748,8 @@ async function markPaid() {
 
 /* ─────────────────────────────────────────
    AUTH (LOGIN / REGISTER)
+   loginDemo is defined later in the file — see OVERRIDE loginDemo section
 ───────────────────────────────────────── */
-async function loginDemo() {
-  // Demo: fetch first member or create a demo user
-  try {
-    const members = await GET('/members');
-    if (members.length) {
-      State.currentUser = members[0];
-      toast('Welcome, ' + members[0].name + '!', 'success');
-      goTo('home');
-      loadHome();
-    } else {
-      // Create a demo member
-      const m = await POST('/members', {
-        name: 'Alex Kumar', email: 'alex@demo.com', upi_id: 'alex@upi'
-      });
-      State.currentUser = m;
-      goTo('home');
-    }
-  } catch (e) {
-    // Offline / demo mode — use static data
-    State.currentUser = { id: 'demo', name: 'Alex Kumar', email: 'alex@demo.com', upi_id: 'alex@upi' };
-    toast('Demo mode (no backend)', 'default');
-    goTo('home');
-  }
-}
 
 async function submitLogin() {
   const email = $('login-email').value.trim();
@@ -815,20 +792,26 @@ async function submitRegister() {
   const name  = $('reg-name').value.trim();
   const email = $('reg-email').value.trim();
   const upi   = $('reg-upi').value.trim();
-  if (!name || !email) { toast('Fill name and email', 'error'); return; }
+  if (!name) { toast('Enter your name', 'error'); return; }
+  if (!email) { toast('Enter your email', 'error'); return; }
 
   const btn = $('reg-btn');
   btn.disabled = true; btn.textContent = 'Creating…';
+
+  // Show which API URL we are hitting
+  console.log('Registering at:', window.BS_API_BASE);
+
   try {
     const m = await POST('/members', { name, email, upi_id: upi || null });
     State.currentUser = m;
-    // Persist session so page refresh keeps you logged in
     try { localStorage.setItem('bs_user', JSON.stringify(m)); } catch(e) {}
     toast('Account created! Welcome, ' + m.name + ' 🎉', 'success');
     goTo('home');
     loadHome();
   } catch (err) {
-    showError(err.message);
+    console.error('Register error:', err);
+    // Show full error on screen so user can see it
+    showError('Register failed: ' + err.message + ' (API: ' + window.BS_API_BASE + ')');
   } finally {
     btn.disabled = false; btn.textContent = 'Create Account';
   }
@@ -903,13 +886,15 @@ function sendReminder(name) {
   goTo('login');
 })();
 
-// Expose to HTML onclick handlers
+// Expose ALL functions to HTML onclick handlers
 Object.assign(window, {
-  goTo, toast, openAddExpense, submitExpense, setCat, setSplit,
+  goTo, toast,
+  openAddExpense, submitExpense, setCat, setSplit,
   openGroup, openCreateGroup, submitGroup,
   openExpModal, openQR, markPaid, sendReminder,
-  switchTab, submitLogin, submitRegister, closeModal, loginDemo,
+  switchTab, submitLogin, submitRegister, closeModal,
 });
+// These are defined after this block and exported individually below
 
 /* ─────────────────────────────────────────
    AUTH TAB SWITCH
@@ -920,7 +905,6 @@ function authTab(tab) {
   document.getElementById('auth-login').style.display    = tab === 'login'    ? 'block' : 'none';
   document.getElementById('auth-register').style.display = tab === 'register' ? 'block' : 'none';
 }
-window.authTab = authTab;
 
 /* ─────────────────────────────────────────
    SIGN OUT
@@ -933,7 +917,6 @@ function doSignOut() {
   toast('Signed out');
   goTo('login');
 }
-window.doSignOut = doSignOut;
 
 /* ─────────────────────────────────────────
    MY UPI QR (profile screen)
@@ -944,7 +927,6 @@ function openMyQR() {
   if (!m.upi_id) { toast('No UPI ID set on your profile', 'error'); return; }
   openQR(m.name, m.upi_id, 0);
 }
-window.openMyQR = openMyQR;
 
 /* ─────────────────────────────────────────
    PROFILE STATS
@@ -1209,6 +1191,15 @@ async function loginDemo() {
   goTo('home');
   loadDemoData();
 }
-window.loginDemo = loginDemo;
 
-/* goTo auth guard is now built into the function above */
+/* ─────────────────────────────────────────
+   FINAL EXPORTS — all functions available to HTML onclick=""
+───────────────────────────────────────── */
+Object.assign(window, {
+  authTab, doSignOut, openMyQR, loginDemo,
+  goTo, toast,
+  openAddExpense, submitExpense, setCat, setSplit,
+  openGroup, openCreateGroup, submitGroup,
+  openExpModal, openQR, markPaid, sendReminder,
+  switchTab, submitLogin, submitRegister, closeModal,
+});
