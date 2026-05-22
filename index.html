@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="theme-color" content="#0D0F14"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>BillSplitter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<!-- ⚡ CHANGE the Railway URL below after deploying -->
+<script>
+  (function() {
+    var h = window.location.hostname;
+    // Any local address → always hit localhost:5000
+    var isLocal = (h === 'localhost' || h === '127.0.0.1' || h.startsWith('192.168.') || h.startsWith('10.') || h === '');
+    window.BS_API_BASE = isLocal
+      ? 'http://localhost:5000/api'
+      : 'billsplitter-backend-production-7a67.up.railway.app/api';  // ← replace after Railway deploy
+  })();
+</script>
+
+<style>
+/* ══════════════════════════════════════════════════════
+   RESET & TOKENS
+══════════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0D0F14; --surface:#181B24; --card:#1F2330; --card2:#252A38;
+  --accent:#6C63FF; --accent-dim:rgba(108,99,255,.15);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#FF5C5C;   --red-dim:rgba(255,92,92,.12);
+  --amber:#F59E0B; --amber-dim:rgba(245,158,11,.12);
+  --blue:#60A5FA;  --blue-dim:rgba(96,165,250,.12);
+  --text:#F0F2FF;  --muted:#8891A8;
+  --border:#2D3347; --border2:#3A4060;
+  --r:18px; --rmd:12px; --rsm:9px;
+  --nav:72px; --status:44px;
+}
+html,body{
+  height:100%;width:100%;
+  font-family:'DM Sans',sans-serif;
+  background:var(--bg); color:var(--text);
+  overflow:hidden; font-size:15px; line-height:1.5;
+}
+
+/* ══════════════════════════════════════════════════════
+   APP SHELL
+══════════════════════════════════════════════════════ */
+.app{
+  max-width:430px; margin:0 auto; height:100vh;
+  display:flex; flex-direction:column;
+  position:relative; overflow:hidden; background:var(--bg);
+}
+
+/* Status bar */
+.statusbar{
+  height:var(--status); display:flex; justify-content:space-between;
+  align-items:center; padding:0 22px; font-size:12px;
+  color:var(--muted); flex-shrink:0; background:var(--bg);
+}
+.statusbar .time{font-weight:700;font-size:15px;color:var(--text);font-family:'Sora',sans-serif}
+
+/* Screens */
+.screen{display:none;flex-direction:column;flex:1;overflow:hidden}
+.screen.active{display:flex}
+
+/* Scroll area */
+.scroll{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:0 16px 16px; -webkit-overflow-scrolling:touch;
+}
+.scroll::-webkit-scrollbar{display:none}
+
+/* Page header */
+.ph{padding:6px 16px 10px;display:flex;justify-content:space-between;align-items:flex-start;flex-shrink:0}
+.ph-l .appname{font-size:10px;font-weight:700;color:var(--accent);letter-spacing:1.5px;font-family:'Sora',sans-serif;text-transform:uppercase;margin-bottom:1px}
+.ph-l .title{font-size:22px;font-weight:700;font-family:'Sora',sans-serif;line-height:1.15}
+.ph-l .sub{font-size:12px;color:var(--muted);margin-top:2px}
+.ph-r{display:flex;gap:8px;align-items:center;padding-top:2px}
+
+/* Buttons */
+.icon-btn{width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px}
+.icon-btn:hover{background:var(--card2)}
+.avatar-btn{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#6C63FF,#A78BFA);border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif}
+.back-btn{width:36px;height:36px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;flex-shrink:0}
+.full-btn{width:100%;padding:11px;border-radius:var(--rsm);background:var(--accent);border:none;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Sora',sans-serif;display:flex;align-items:center;justify-content:center;gap:7px;transition:background .15s}
+.full-btn:hover{background:#7C74FF}
+.full-btn:active{transform:scale(.97)}
+.full-btn.ghost{background:var(--card2);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.full-btn.ghost:hover{background:rgba(34,197,94,.08)}
+.full-btn.danger{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,92,92,.2)}
+
+/* Bottom nav */
+.bottom-nav{height:var(--nav);background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:flex-start;padding-top:6px;flex-shrink:0;position:relative;z-index:10}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:none;color:var(--muted);font-size:9px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;padding:4px 0;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}
+.nav-btn i{font-size:21px;display:block}
+.nav-btn.active{color:var(--accent)}
+.fab{width:54px;height:54px;border-radius:50%;background:var(--accent);border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:-18px;box-shadow:0 6px 24px rgba(108,99,255,.45);flex-shrink:0;transition:transform .15s,box-shadow .15s}
+.fab:hover{transform:scale(1.06);box-shadow:0 8px 30px rgba(108,99,255,.55)}
+.fab:active{transform:scale(.95)}
+
+/* Cards */
+.card{background:var(--card);border-radius:var(--rmd);border:1px solid var(--border);padding:14px 16px;margin-bottom:10px}
+.sec-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.sec-title{font-size:15px;font-weight:600;font-family:'Sora',sans-serif}
+.see-all{font-size:12px;color:var(--accent);cursor:pointer;font-weight:500}
+
+/* Chips */
+.chip-row{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:7px 16px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;transition:all .15s}
+.chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* Badge */
+.badge{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600}
+.bg{background:var(--green-dim);color:var(--green)}
+.br{background:var(--red-dim);color:var(--red)}
+.ba{background:var(--amber-dim);color:var(--amber)}
+.bp{background:var(--accent-dim);color:var(--accent)}
+
+/* Loader spinner */
+.loader{display:none;align-items:center;justify-content:center;padding:32px}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ══════════════════════════════════════════════════════
+   LOGIN / REGISTER
+══════════════════════════════════════════════════════ */
+.auth-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px}
+.auth-logo{font-size:42px;margin-bottom:8px}
+.auth-appname{font-size:24px;font-weight:700;font-family:'Sora',sans-serif;color:var(--text);margin-bottom:4px}
+.auth-tagline{font-size:13px;color:var(--muted);margin-bottom:32px;text-align:center}
+.auth-tabs{display:flex;background:var(--card);border-radius:var(--rsm);padding:4px;margin-bottom:20px;width:100%;gap:4px;border:1px solid var(--border)}
+.auth-tab{flex:1;padding:9px;border-radius:7px;border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;transition:all .15s}
+.auth-tab.active{background:var(--accent);color:#fff}
+.form-group{margin-bottom:14px;width:100%}
+.form-label{font-size:11px;color:var(--muted);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:.5px}
+.form-input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:var(--rsm);padding:12px 14px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .15s}
+.form-input:focus{border-color:var(--accent)}
+.form-input::placeholder{color:var(--muted)}
+.form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238891A8' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:14px 0;width:100%}
+.auth-divider span{font-size:11px;color:var(--muted);flex-shrink:0}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.demo-btn{width:100%;padding:11px;border-radius:var(--rsm);background:var(--card2);border:1px solid var(--border2);color:var(--text);font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s}
+.demo-btn:hover{background:var(--card)}
+.submit-btn{width:100%;padding:13px;border-radius:var(--rsm);background:var(--accent);border:none;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:'Sora',sans-serif;transition:background .15s;margin-top:2px}
+.submit-btn:hover{background:#7C74FF}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ══════════════════════════════════════════════════════
+   HOME
+══════════════════════════════════════════════════════ */
+.balance-hero{background:var(--card);border-radius:var(--r);padding:22px 20px 18px;margin-bottom:12px;border:1px solid var(--border);position:relative;overflow:hidden}
+.balance-hero::before{content:'';position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(108,99,255,.18),transparent 70%);pointer-events:none}
+.bh-label{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}
+.bh-amount{font-size:38px;font-weight:700;font-family:'Sora',sans-serif;line-height:1;transition:color .3s}
+.bh-sub{font-size:12px;color:var(--green);margin-top:8px;display:flex;align-items:center;gap:5px}
+.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stat-card{background:var(--card);border-radius:var(--rmd);border:1px solid var(--border);padding:14px 14px 12px}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px}
+.stat-val{font-size:20px;font-weight:700;font-family:'Sora',sans-serif}
+.stat-val.g{color:var(--green)} .stat-val.r{color:var(--red)}
+.act-item{background:var(--card);border-radius:var(--rmd);border:1px solid var(--border);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background .15s}
+.act-item:hover{background:var(--card2)}
+.act-icon{width:42px;height:42px;border-radius:11px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.act-info{flex:1;min-width:0}
+.act-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.act-amounts{text-align:right;flex-shrink:0}
+.act-total{font-size:14px;font-weight:700;font-family:'Sora',sans-serif}
+.act-you{font-size:11px;margin-top:2px;font-weight:500}
+.act-you.g{color:var(--green)} .act-you.r{color:var(--red)}
+
+/* ══════════════════════════════════════════════════════
+   GROUPS
+══════════════════════════════════════════════════════ */
+.group-card{background:var(--card);border-radius:var(--rmd);border:1px solid var(--border);padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:13px;cursor:pointer;transition:background .15s}
+.group-card:hover{background:var(--card2)}
+.gi{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0}
+.gi.trip{background:rgba(108,99,255,.15)} .gi.home{background:var(--green-dim)} .gi.food{background:var(--amber-dim)} .gi.other{background:var(--red-dim)}
+.group-info{flex:1;min-width:0}
+.group-name{font-size:14px;font-weight:600}
+.group-sub{font-size:11px;color:var(--muted);margin-top:3px}
+.group-bal{font-size:14px;font-weight:700;font-family:'Sora',sans-serif;flex-shrink:0}
+
+/* ══════════════════════════════════════════════════════
+   GROUP DETAIL
+══════════════════════════════════════════════════════ */
+.member-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-bottom:14px}
+.member-scroll::-webkit-scrollbar{display:none}
+.m-chip{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;cursor:pointer}
+.m-av{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-family:'Sora',sans-serif;border:2.5px solid transparent}
+.m-av.me{border-color:var(--accent)}
+.m-av.p{background:linear-gradient(135deg,#6C63FF,#A78BFA);color:#fff}
+.m-av.g{background:var(--green-dim);color:var(--green)}
+.m-av.a{background:var(--amber-dim);color:var(--amber)}
+.m-av.r{background:var(--red-dim);color:var(--red)}
+.m-av.b{background:var(--blue-dim);color:var(--blue)}
+.m-av.add{background:var(--card2);color:var(--muted);border:1.5px dashed var(--border2)}
+.m-name{font-size:10px;color:var(--muted)}
+.tabs{display:flex;background:var(--card);border-radius:var(--rsm);padding:4px;margin-bottom:14px;gap:3px;border:1px solid var(--border)}
+.tab-btn{flex:1;padding:9px;border-radius:7px;border:none;background:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;transition:all .15s}
+.tab-btn.active{background:var(--accent);color:#fff}
+.exp-row{background:var(--card);border-radius:var(--rsm);border:1px solid var(--border);padding:12px 13px;margin-bottom:7px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:background .15s}
+.exp-row:hover{background:var(--card2)}
+.exp-icon{width:38px;height:38px;border-radius:9px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.exp-info{flex:1;min-width:0}
+.exp-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exp-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.exp-right{text-align:right;flex-shrink:0}
+.exp-total{font-size:13px;font-weight:700;font-family:'Sora',sans-serif}
+.exp-share{font-size:10px;margin-top:2px;font-weight:500}
+.bal-item{background:var(--card);border-radius:var(--rsm);border:1px solid var(--border);padding:13px 14px;margin-bottom:8px}
+.bal-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.bal-who{display:flex;align-items:center;gap:9px}
+.bal-name{font-size:13px;font-weight:500}
+.bal-amt{font-size:15px;font-weight:700;font-family:'Sora',sans-serif}
+.prog{height:5px;background:var(--card2);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.settle-card{background:var(--card);border-radius:var(--rmd);border:1px solid var(--border);padding:15px;margin-bottom:10px}
+.settle-flow{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+.s-av{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:'Sora',sans-serif;flex-shrink:0}
+.arrow-track{flex:1;display:flex;align-items:center;gap:4px}
+.arrow-line{flex:1;height:2px;background:linear-gradient(90deg,var(--red),var(--accent))}
+.settle-info{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:11px}
+.settle-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.settle-amt{font-size:18px;font-weight:700;font-family:'Sora',sans-serif}
+
+/* ══════════════════════════════════════════════════════
+   ANALYTICS
+══════════════════════════════════════════════════════ */
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.metric-card{background:var(--card);border-radius:var(--rmd);border:1px solid var(--border);padding:14px}
+.metric-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px}
+.metric-val{font-size:21px;font-weight:700;font-family:'Sora',sans-serif}
+.donut-wrap{position:relative;width:130px;height:130px;margin:0 auto 14px}
+.donut-wrap svg{width:100%;height:100%}
+.donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut-center .dv{font-size:18px;font-weight:700;font-family:'Sora',sans-serif}
+.donut-center .dl{font-size:10px;color:var(--muted)}
+.legend-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.legend-row:last-child{border:none}
+.ldot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.lpct{margin-left:auto;font-weight:600;color:var(--muted)}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.bar-name{font-size:12px;color:var(--muted);width:38px;text-align:right;flex-shrink:0}
+.bar-track{flex:1;height:22px;background:var(--card2);border-radius:5px;overflow:hidden}
+.bar-fill{height:100%;border-radius:5px;transition:width .6s ease}
+.bar-val{font-size:12px;font-weight:600;font-family:'Sora',sans-serif;width:46px;flex-shrink:0}
+
+/* ══════════════════════════════════════════════════════
+   SETTLE-UP
+══════════════════════════════════════════════════════ */
+.debt-card{background:var(--card);border-radius:var(--rmd);border:1px solid var(--border);padding:15px;margin-bottom:10px}
+.debt-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.dn-from{font-size:14px;font-weight:600}
+.dn-to{font-size:14px;font-weight:600;color:var(--accent)}
+.debt-arrow{color:var(--muted);margin:0 5px;font-size:12px}
+.debt-amt{font-size:20px;font-weight:700;font-family:'Sora',sans-serif}
+
+/* ══════════════════════════════════════════════════════
+   PROFILE
+══════════════════════════════════════════════════════ */
+.profile-hero{text-align:center;padding:16px 0 20px}
+.profile-av{width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,#6C63FF,#A78BFA);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#fff;margin:0 auto 10px;font-family:'Sora',sans-serif}
+.profile-name{font-size:20px;font-weight:700;font-family:'Sora',sans-serif}
+.profile-email{font-size:12px;color:var(--muted);margin-top:3px}
+.profile-upi{font-size:12px;color:var(--accent);margin-top:4px;font-weight:500}
+.menu-list{background:var(--card);border-radius:var(--rmd);border:1px solid var(--border);overflow:hidden}
+.menu-item{display:flex;align-items:center;gap:13px;padding:15px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;font-size:14px}
+.menu-item:last-child{border:none}
+.menu-item:hover{background:var(--card2)}
+.menu-item .lead{font-size:18px;color:var(--accent);width:20px;text-align:center}
+.menu-item .trail{margin-left:auto;color:var(--muted);font-size:14px}
+
+/* ══════════════════════════════════════════════════════
+   MODALS
+══════════════════════════════════════════════════════ */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;flex-direction:column;justify-content:flex-end;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-backdrop.open{opacity:1;pointer-events:all}
+.modal-sheet{background:var(--surface);border-radius:26px 26px 0 0;padding:18px 18px 36px;max-height:90vh;overflow-y:auto;transform:translateY(100%);transition:transform .28s cubic-bezier(.32,1.12,.42,1)}
+.modal-sheet::-webkit-scrollbar{display:none}
+.modal-backdrop.open .modal-sheet{transform:translateY(0)}
+.modal-handle{width:38px;height:4px;border-radius:2px;background:var(--border2);margin:0 auto 16px}
+.modal-title{font-size:18px;font-weight:700;font-family:'Sora',sans-serif;margin-bottom:18px}
+.cat-row{display:flex;gap:8px}
+.cat-btn{width:46px;height:46px;border-radius:10px;border:1px solid var(--border);background:var(--card);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.cat-btn.active{border-color:var(--accent);background:var(--accent-dim)}
+.qr-box{width:175px;height:175px;background:#fff;border-radius:14px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.qr-sub{font-size:12px;color:var(--muted);text-align:center}
+.qr-upi-lbl{font-size:13px;font-weight:600;color:var(--accent);text-align:center;margin-top:4px}
+.amount-strip{display:flex;justify-content:space-between;align-items:center;background:var(--card);border-radius:var(--rsm);padding:13px 14px;margin:13px 0 10px;border:1px solid var(--border)}
+.amount-strip .aslabel{font-size:11px;color:var(--muted)}
+.amount-strip .asval{font-size:20px;font-weight:700;font-family:'Sora',sans-serif;color:var(--red)}
+
+/* ══════════════════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════════════════ */
+.toast{position:fixed;bottom:calc(var(--nav) + 12px);left:50%;transform:translateX(-50%) translateY(16px);background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:10px 20px;border-radius:22px;font-size:12px;font-weight:600;font-family:'Sora',sans-serif;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;white-space:nowrap;z-index:500;display:flex;align-items:center;gap:7px}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.success{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.3);color:var(--green)}
+.toast.error{background:rgba(255,92,92,.12);border-color:rgba(255,92,92,.3);color:var(--red)}
+
+/* ══════════════════════════════════════════════════════
+   ANIMATIONS
+══════════════════════════════════════════════════════ */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.screen.active .scroll > *{animation:fadeUp .22s ease both}
+.screen.active .scroll > *:nth-child(1){animation-delay:.03s}
+.screen.active .scroll > *:nth-child(2){animation-delay:.07s}
+.screen.active .scroll > *:nth-child(3){animation-delay:.11s}
+.screen.active .scroll > *:nth-child(4){animation-delay:.15s}
+.screen.active .scroll > *:nth-child(5){animation-delay:.19s}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ████  STATUS BAR  ████ -->
+  <div class="statusbar">
+    <span class="time" id="clock">9:41</span>
+    <div style="display:flex;gap:6px;align-items:center;font-size:13px">
+      <i class="fa fa-signal"></i>
+      <i class="fa fa-wifi"></i>
+      <i class="fa fa-battery-three-quarters"></i>
+    </div>
+  </div>
+
+  <!-- ████  LOGIN  ████ -->
+  <div class="screen active" id="scr-login">
+    <div class="auth-wrap">
+      <div class="auth-logo">💸</div>
+      <div class="auth-appname">BillSplitter</div>
+      <div class="auth-tagline">Split expenses, settle debts, pay via UPI</div>
+
+      <div class="auth-tabs" style="width:100%">
+        <button class="auth-tab active" id="at-login" onclick="authTab('login')">Sign In</button>
+        <button class="auth-tab" id="at-register" onclick="authTab('register')">Register</button>
+      </div>
+
+      <!-- Login form -->
+      <div id="auth-login" style="width:100%">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" id="login-email" type="email" placeholder="you@example.com" autocomplete="email"/>
+        </div>
+        <button class="submit-btn" id="login-btn" onclick="submitLogin()">Sign In</button>
+        <div class="auth-divider"><span>or</span></div>
+        <button class="demo-btn" onclick="loginDemo()">▶ Try demo (no backend needed)</button>
+      </div>
+
+      <!-- Register form -->
+      <div id="auth-register" style="display:none;width:100%">
+        <div class="form-group">
+          <label class="form-label">Full name</label>
+          <input class="form-input" id="reg-name" type="text" placeholder="Alex Kumar" autocomplete="name"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" id="reg-email" type="email" placeholder="you@example.com" autocomplete="email"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">UPI ID (optional)</label>
+          <input class="form-input" id="reg-upi" type="text" placeholder="yourname@upi"/>
+        </div>
+        <button class="submit-btn" id="reg-btn" onclick="submitRegister()">Create Account</button>
+        <div class="auth-divider"><span>or</span></div>
+        <button class="demo-btn" onclick="loginDemo()">▶ Try demo (no backend needed)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ████  HOME  ████ -->
+  <div class="screen" id="scr-home">
+    <div class="ph">
+      <div class="ph-l">
+        <div class="appname">BillSplitter</div>
+        <div class="title" id="home-greeting">Hi there 👋</div>
+        <div class="sub" id="today-label">Today</div>
+      </div>
+      <div class="ph-r">
+        <button class="icon-btn" onclick="toast('Search — coming soon 🔍')"><i class="fa fa-search"></i></button>
+        <button class="avatar-btn" id="home-avatar" onclick="goTo('profile')">AL</button>
+      </div>
+    </div>
+    <div class="scroll">
+      <div id="loader-home" class="loader"><div class="spinner"></div></div>
+      <div class="balance-hero">
+        <div class="bh-label">Net Balance</div>
+        <div class="bh-amount" id="home-net-balance">₹0.00</div>
+        <div class="bh-sub"><i class="fa fa-arrow-up"></i><span id="home-bal-sub">Loading…</span></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">You're Owed</div>
+          <div class="stat-val g" id="home-owed">₹0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">You Owe</div>
+          <div class="stat-val r" id="home-owes">₹0.00</div>
+        </div>
+      </div>
+      <div class="sec-hdr">
+        <div class="sec-title">Recent activity</div>
+        <div class="see-all" onclick="goTo('settle')">See all</div>
+      </div>
+      <div id="recent-activity-list">
+        <div class="loader" style="display:flex"><div class="spinner"></div></div>
+      </div>
+    </div>
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-screen="home" onclick="goTo('home')"><i class="fa fa-home"></i>Home</button>
+      <button class="nav-btn" data-screen="groups" onclick="goTo('groups')"><i class="fa fa-users"></i>Groups</button>
+      <button class="fab" onclick="openAddExpense()"><i class="fa fa-plus"></i></button>
+      <button class="nav-btn" data-screen="settle" onclick="goTo('settle')"><i class="fa fa-rotate"></i>Settle</button>
+      <button class="nav-btn" data-screen="profile" onclick="goTo('profile')"><i class="fa fa-user"></i>Profile</button>
+    </nav>
+  </div>
+
+  <!-- ████  GROUPS  ████ -->
+  <div class="screen" id="scr-groups">
+    <div class="ph">
+      <div class="ph-l">
+        <div class="appname">BillSplitter</div>
+        <div class="title">Groups</div>
+      </div>
+      <div class="ph-r">
+        <button class="icon-btn" onclick="openCreateGroup()"><i class="fa fa-plus"></i></button>
+      </div>
+    </div>
+    <div class="scroll">
+      <div id="loader-groups" class="loader"><div class="spinner"></div></div>
+      <div id="groups-list"></div>
+    </div>
+    <nav class="bottom-nav">
+      <button class="nav-btn" data-screen="home" onclick="goTo('home')"><i class="fa fa-home"></i>Home</button>
+      <button class="nav-btn active" data-screen="groups" onclick="goTo('groups')"><i class="fa fa-users"></i>Groups</button>
+      <button class="fab" onclick="openAddExpense()"><i class="fa fa-plus"></i></button>
+      <button class="nav-btn" data-screen="settle" onclick="goTo('settle')"><i class="fa fa-rotate"></i>Settle</button>
+      <button class="nav-btn" data-screen="profile" onclick="goTo('profile')"><i class="fa fa-user"></i>Profile</button>
+    </nav>
+  </div>
+
+  <!-- ████  GROUP DETAIL  ████ -->
+  <div class="screen" id="scr-gdetail">
+    <div class="ph">
+      <div style="display:flex;align-items:center;gap:10px;flex:1">
+        <button class="back-btn" onclick="goTo('groups')"><i class="fa fa-arrow-left"></i></button>
+        <div>
+          <div class="appname">BillSplitter</div>
+          <div class="title" id="gd-name" style="font-size:17px">Group</div>
+          <div class="sub" id="gd-sub"></div>
+        </div>
+      </div>
+      <div class="ph-r">
+        <button class="icon-btn" onclick="goTo('analytics')"><i class="fa fa-chart-pie"></i></button>
+        <button class="icon-btn" onclick="toast('Group settings')"><i class="fa fa-ellipsis-v"></i></button>
+      </div>
+    </div>
+    <div style="padding:0 16px;flex-shrink:0">
+      <div class="member-scroll" id="member-chips"></div>
+      <div class="tabs">
+        <button class="tab-btn active" id="tb-exp"    onclick="switchTab('exp')">Expenses</button>
+        <button class="tab-btn"        id="tb-bal"    onclick="switchTab('bal')">Balances</button>
+        <button class="tab-btn"        id="tb-settle" onclick="switchTab('settle')">Settle</button>
+      </div>
+    </div>
+    <div class="scroll">
+      <div id="loader-gdetail" class="loader"><div class="spinner"></div></div>
+      <div id="pane-exp"></div>
+      <div id="pane-bal"    style="display:none"></div>
+      <div id="pane-settle" style="display:none"></div>
+    </div>
+    <div style="padding:0 16px 14px;flex-shrink:0">
+      <button class="full-btn" onclick="openAddExpense()"><i class="fa fa-plus"></i> Add expense to group</button>
+    </div>
+  </div>
+
+  <!-- ████  ANALYTICS  ████ -->
+  <div class="screen" id="scr-analytics">
+    <div class="ph">
+      <div style="display:flex;align-items:center;gap:10px;flex:1">
+        <button class="back-btn" onclick="goTo('gdetail')"><i class="fa fa-arrow-left"></i></button>
+        <div>
+          <div class="appname">BillSplitter</div>
+          <div class="title" style="font-size:18px">Analytics</div>
+          <div class="sub" id="an-group-name">Group</div>
+        </div>
+      </div>
+    </div>
+    <div class="scroll">
+      <div id="loader-analytics" class="loader"><div class="spinner"></div></div>
+      <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-label">Total spent</div><div class="metric-val" id="an-total">—</div></div>
+        <div class="metric-card"><div class="metric-label">Per person</div><div class="metric-val" id="an-perperson">—</div></div>
+        <div class="metric-card"><div class="metric-label">Expenses</div><div class="metric-val" id="an-count">—</div></div>
+        <div class="metric-card"><div class="metric-label">Top spender</div><div class="metric-val" id="an-top" style="font-size:16px;padding-top:2px">—</div></div>
+      </div>
+      <div class="card">
+        <div class="sec-title" style="margin-bottom:14px">By category</div>
+        <div class="donut-wrap" id="donut-wrap">
+          <svg viewBox="0 0 120 120" style="transform:rotate(-90deg)" id="donut-svg">
+            <circle cx="60" cy="60" r="46" fill="none" stroke="#252A38" stroke-width="18"/>
+          </svg>
+          <div class="donut-center">
+            <div class="dv" id="donut-center-val">₹0</div>
+            <div class="dl">total</div>
+          </div>
+        </div>
+        <div id="donut-legend"></div>
+      </div>
+      <div class="card">
+        <div class="sec-title" style="margin-bottom:14px">Paid by member</div>
+        <div id="bar-chart-analytics"></div>
+      </div>
+      <div class="card">
+        <div class="sec-title" style="margin-bottom:12px">Daily spending</div>
+        <svg id="sparkline-svg" viewBox="0 0 340 80" style="width:100%;overflow:visible">
+          <defs>
+            <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#6C63FF" stop-opacity=".22"/>
+              <stop offset="100%" stop-color="#6C63FF" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path id="spark-line" fill="none" stroke="#6C63FF" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+          <path id="spark-fill" fill="url(#sg)"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ████  SETTLE UP  ████ -->
+  <div class="screen" id="scr-settle">
+    <div class="ph">
+      <div class="ph-l">
+        <div class="appname">BillSplitter</div>
+        <div class="title">Settle Up</div>
+        <div class="sub">Optimised across all groups</div>
+      </div>
+    </div>
+    <div class="scroll">
+      <div id="loader-settle" class="loader"><div class="spinner"></div></div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px" id="settle-info">
+        <i class="fa fa-circle-info" style="color:var(--accent);margin-right:5px"></i>Loading…
+      </div>
+      <div id="settle-debts"></div>
+      <div class="sec-hdr" style="margin-top:4px"><div class="sec-title">Settlement history</div></div>
+      <div id="settle-activity"></div>
+    </div>
+    <nav class="bottom-nav">
+      <button class="nav-btn" data-screen="home"    onclick="goTo('home')"><i class="fa fa-home"></i>Home</button>
+      <button class="nav-btn" data-screen="groups"  onclick="goTo('groups')"><i class="fa fa-users"></i>Groups</button>
+      <button class="fab" onclick="openAddExpense()"><i class="fa fa-plus"></i></button>
+      <button class="nav-btn active" data-screen="settle" onclick="goTo('settle')"><i class="fa fa-rotate"></i>Settle</button>
+      <button class="nav-btn" data-screen="profile" onclick="goTo('profile')"><i class="fa fa-user"></i>Profile</button>
+    </nav>
+  </div>
+
+  <!-- ████  PROFILE  ████ -->
+  <div class="screen" id="scr-profile">
+    <div class="ph">
+      <div class="ph-l">
+        <div class="appname">BillSplitter</div>
+        <div class="title">Profile</div>
+      </div>
+    </div>
+    <div class="scroll">
+      <div class="profile-hero">
+        <div class="profile-av" id="profile-av">AL</div>
+        <div class="profile-name" id="profile-name">Alex Kumar</div>
+        <div class="profile-email" id="profile-email">alex@example.com</div>
+        <div class="profile-upi"><i class="fa fa-bolt" style="font-size:11px;margin-right:3px"></i><span id="profile-upi">alex@upi</span></div>
+      </div>
+      <div class="stats-row" style="margin-bottom:16px">
+        <div class="stat-card" style="text-align:center">
+          <div class="stat-label">Total spent</div>
+          <div class="stat-val" id="profile-total">₹0</div>
+        </div>
+        <div class="stat-card" style="text-align:center">
+          <div class="stat-label">Groups</div>
+          <div class="stat-val" id="profile-groups">0</div>
+        </div>
+      </div>
+      <div class="menu-list">
+        <div class="menu-item" onclick="toast('Edit profile')">
+          <i class="fa fa-user-pen lead"></i><span>Edit profile</span><i class="fa fa-chevron-right trail"></i>
+        </div>
+        <div class="menu-item" onclick="openMyQR()">
+          <i class="fa fa-qrcode lead"></i><span>My UPI QR code</span><i class="fa fa-chevron-right trail"></i>
+        </div>
+        <div class="menu-item" onclick="goTo('analytics')">
+          <i class="fa fa-chart-pie lead"></i><span>Spending analytics</span><i class="fa fa-chevron-right trail"></i>
+        </div>
+        <div class="menu-item" onclick="toast('Exporting report…')">
+          <i class="fa fa-file-export lead"></i><span>Export reports</span><i class="fa fa-chevron-right trail"></i>
+        </div>
+        <div class="menu-item" onclick="toast('Notification settings')">
+          <i class="fa fa-bell lead"></i><span>Notifications</span><i class="fa fa-chevron-right trail"></i>
+        </div>
+        <div class="menu-item" onclick="doSignOut()">
+          <i class="fa fa-right-from-bracket lead" style="color:var(--red)"></i>
+          <span style="color:var(--red)">Sign out</span>
+          <i class="fa fa-chevron-right trail"></i>
+        </div>
+      </div>
+    </div>
+    <nav class="bottom-nav">
+      <button class="nav-btn" data-screen="home"    onclick="goTo('home')"><i class="fa fa-home"></i>Home</button>
+      <button class="nav-btn" data-screen="groups"  onclick="goTo('groups')"><i class="fa fa-users"></i>Groups</button>
+      <button class="fab" onclick="openAddExpense()"><i class="fa fa-plus"></i></button>
+      <button class="nav-btn" data-screen="settle"  onclick="goTo('settle')"><i class="fa fa-rotate"></i>Settle</button>
+      <button class="nav-btn active" data-screen="profile" onclick="goTo('profile')"><i class="fa fa-user"></i>Profile</button>
+    </nav>
+  </div>
+
+  <!-- ████  MODAL — ADD EXPENSE  ████ -->
+  <div class="modal-backdrop" id="modal-add" onclick="if(event.target.id==='modal-add')closeModal('modal-add')">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">Add Expense</div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <input class="form-input" id="inp-desc" type="text" placeholder="What was it for?"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Amount (₹)</label>
+        <input class="form-input" id="inp-amount" type="number" placeholder="0.00" inputmode="decimal"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <div class="cat-row">
+          <button class="cat-btn active" onclick="setCat(this)" data-cat="food"          title="Food">🍕</button>
+          <button class="cat-btn"        onclick="setCat(this)" data-cat="transport"     title="Transport">🚕</button>
+          <button class="cat-btn"        onclick="setCat(this)" data-cat="home"          title="Home">🏠</button>
+          <button class="cat-btn"        onclick="setCat(this)" data-cat="entertainment" title="Entertainment">🎬</button>
+          <button class="cat-btn"        onclick="setCat(this)" data-cat="travel"        title="Travel">✈️</button>
+          <button class="cat-btn"        onclick="setCat(this)" data-cat="other"         title="Other">📦</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Split type</label>
+        <div class="chip-row">
+          <button class="chip active" onclick="setSplit(this)" data-val="equal">Equal</button>
+          <button class="chip"        onclick="setSplit(this)" data-val="exact">Exact</button>
+          <button class="chip"        onclick="setSplit(this)" data-val="percent">Percentage</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Paid by</label>
+        <select class="form-input form-select" id="inp-payer">
+          <option value="">Select member…</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Group</label>
+        <select class="form-input form-select" id="inp-group">
+          <option value="">Select group…</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input class="form-input" id="inp-date" type="date"/>
+      </div>
+      <button class="submit-btn" id="submit-exp-btn" onclick="submitExpense()">Add Expense</button>
+    </div>
+  </div>
+
+  <!-- ████  MODAL — CREATE GROUP  ████ -->
+  <div class="modal-backdrop" id="modal-creategroup" onclick="if(event.target.id==='modal-creategroup')closeModal('modal-creategroup')">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">Create Group</div>
+      <div class="form-group">
+        <label class="form-label">Group name</label>
+        <input class="form-input" id="cg-name" type="text" placeholder="e.g. Goa Trip 2025"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="form-input form-select" id="cg-cat">
+          <option value="general">General</option>
+          <option value="trip">Trip / Travel</option>
+          <option value="home">Home / Flat</option>
+          <option value="food">Food / Dining</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description (optional)</label>
+        <input class="form-input" id="cg-desc" type="text" placeholder="What's this group for?"/>
+      </div>
+      <button class="submit-btn" id="cg-submit-btn" onclick="submitGroup()">Create Group</button>
+    </div>
+  </div>
+
+  <!-- ████  MODAL — EXPENSE DETAIL  ████ -->
+  <div class="modal-backdrop" id="modal-exp" onclick="if(event.target.id==='modal-exp')closeModal('modal-exp')">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px" id="ed-cat">—</div>
+          <div style="font-size:20px;font-weight:700;font-family:'Sora',sans-serif" id="ed-title">—</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px" id="ed-meta">—</div>
+        </div>
+        <div style="font-size:26px;font-weight:700;font-family:'Sora',sans-serif" id="ed-amount">—</div>
+      </div>
+      <div style="background:var(--card);border-radius:var(--rsm);padding:13px 14px;border:1px solid var(--border);margin-bottom:13px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:12px">
+          <span style="color:var(--muted)">Paid by</span><span id="ed-paidby" style="font-weight:600">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:12px">
+          <span style="color:var(--muted)">Split type</span><span id="ed-split" style="font-weight:600">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span style="color:var(--muted)">Your share</span><span id="ed-share" style="font-weight:600;color:var(--green)">—</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button class="full-btn" style="background:var(--card);color:var(--text);border:1px solid var(--border)"
+          onclick="toast('Edit expense — coming soon')"><i class="fa fa-pen"></i> Edit</button>
+        <button class="full-btn danger" id="ed-delete-btn"><i class="fa fa-trash"></i> Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ████  MODAL — UPI QR  ████ -->
+  <div class="modal-backdrop" id="modal-qr" onclick="if(event.target.id==='modal-qr')closeModal('modal-qr')">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title" id="qr-title">Pay via UPI</div>
+      <div class="qr-box" id="qr-render"></div>
+      <div class="qr-sub">Scan with any UPI app</div>
+      <div class="qr-upi-lbl" id="qr-upi-lbl">—</div>
+      <div class="amount-strip">
+        <div>
+          <div class="aslabel">Settle amount</div>
+          <div class="asval" id="qr-amt-lbl">—</div>
+        </div>
+        <button class="full-btn" style="width:auto;padding:10px 18px" onclick="markPaid()">
+          <i class="fa fa-check"></i> Mark paid
+        </button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:4px">
+        Opens UPI app automatically on Android
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="the-toast"></div>
+</div>
+
+<!-- Load full app controller -->
+<script src="app.js"></script>
+</body>
+</html>
