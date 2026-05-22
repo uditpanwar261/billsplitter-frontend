@@ -2,6 +2,8 @@
 
 Mobile-first web app for splitting expenses and settling debts via UPI.
 
+## Demo linl -> https://billsplitter-frontend.vercel.app/
+
 ## Files
 
 | File | Purpose |
